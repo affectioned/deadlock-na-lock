@@ -50,6 +50,12 @@ python refresh-relays.py        # pull current relay IPs from Valve
 `na-lock.ps1 -On` needs an elevated PowerShell session. Set `-GameExe` if your Deadlock
 install is not on the default path baked into the script.
 
+The rule matches on the game's exact image path, so it **fails open silently**: move or
+reinstall Deadlock somewhere else and the rule still exists but matches no process, quietly
+putting you back on EU servers. `-Status` guards against that — it reports `NOT ENFORCED`
+in red, rather than `ACTIVE`, when the targeted binary is missing or when the active rule
+points somewhere other than the `-GameExe` you expect.
+
 Verify from the in-game console with `net_print_sdr_ping_times` ("Print current ping times
 to SDR points of presence, and selected route") — EU POPs should show roughly double their
 real latency. Confirm actual placement in `game/citadel/console.log`:

@@ -100,9 +100,38 @@ switch ($PSCmdlet.ParameterSetName) {
         }
         $addrs = ($rule | Get-NetFirewallAddressFilter).RemoteAddress
         $app   = ($rule | Get-NetFirewallApplicationFilter).Program
-        Write-Host 'NA lock: ACTIVE' -ForegroundColor Green
+
+        # The rule matches on the exact image path. If that binary moved or was
+        # reinstalled elsewhere, the rule still exists but matches no process --
+        # a silent fail-open back to EU servers. Surface that loudly.
+        $pathOk = Test-Path -LiteralPath $app
+        $drift  = ($app -and $GameExe -and ($app -ne $GameExe))
+
+        if ($pathOk -and -not $drift) {
+            Write-Host 'NA lock: ACTIVE' -ForegroundColor Green
+        } else {
+            Write-Host 'NA lock: NOT ENFORCED' -ForegroundColor Red
+        }
         Write-Host "  enabled       : $($rule.Enabled)"
         Write-Host "  blocked IPs   : $($addrs.Count)"
         Write-Host "  scoped to     : $app"
+
+        if (-not $pathOk) {
+            Write-Warning @"
+The rule targets a binary that does not exist:
+  $app
+The rule matches nothing, so Deadlock traffic is NOT being filtered and you can
+land on EU servers again. Re-run with -On (pass -GameExe if the install moved).
+"@
+        }
+        elseif ($drift) {
+            Write-Warning @"
+The active rule targets a different binary than this script's -GameExe default:
+  rule    : $app
+  expected: $GameExe
+Whichever is wrong, only the path in the rule is actually enforced. Re-run -On
+with the correct -GameExe to realign them.
+"@
+        }
     }
 }
