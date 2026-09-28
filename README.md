@@ -4,6 +4,20 @@ Force [Deadlock](https://store.steampowered.com/app/1422450/Deadlock/) onto Nort
 servers by blocking non-NA Steam Datagram Relay endpoints — with a Windows Firewall rule
 scoped to `deadlock.exe`. No injection, no patched binaries, no DLLs loaded into the game.
 
+## Why I made this
+
+I play from Europe but my friends are on NA, so I want my matches on North American servers
+even though that is not where I get the best ping. Deadlock has no setting for this.
+
+The obvious candidate is the `citadel_region_override` convar, which sounds exactly like
+what you would want — but it is **client-only**. I reverse engineered the retail client to
+check, and it never reaches matchmaking: it changes which leaderboard you are shown and
+nothing else. Launching with `+citadel_region_override 0` does not move you one metre closer
+to a NA server.
+
+Since the client cannot ask for a region, the only thing left that it *does* control is the
+ping table it reports when queueing. That is what this tool shapes.
+
 ## Why this works
 
 Deadlock's Game Coordinator does not take a region preference from the client. There is a
