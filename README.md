@@ -91,8 +91,31 @@ in red, rather than `ACTIVE`, when the targeted binary is missing or when the ac
 points somewhere other than the `-GameExe` you expect.
 
 Verify from the in-game console with `net_print_sdr_ping_times` ("Print current ping times
-to SDR points of presence, and selected route") — EU POPs should show roughly double their
-real latency. Confirm actual placement in `game/citadel/console.log`:
+to SDR points of presence, and selected route"). Working output looks like this — every
+direct measurement is North American, and European POPs are reached *via* a NA relay:
+
+```
+Obtained direct RTT measurements to relays in 6 POPs.  Closest 6 are:
+  iad: 122ms
+  atl: 129ms
+  ord: 134ms
+  dfw: 149ms
+  sea: 176ms
+  lax: 178ms
+
+  iad: 122ms via direct route
+  par: 199ms via iad (front=122ms, back=77ms)
+  lhr: 205ms via iad (front=122ms, back=83ms)
+  fra: 208ms via iad (front=122ms, back=86ms)
+  ams: 209ms via iad (front=122ms, back=87ms)
+```
+
+`front=122ms` is the ping to your nearest reachable relay and `back=` is Valve's backbone
+leg — the two terms of the estimate this tool exploits. European POPs reporting 199-209 ms
+against `iad` at 122 ms is the intended result.
+
+Ping estimates are only the input, though. Confirm actual placement after a match in
+`game/citadel/console.log`:
 
 ```
 [Networking]         Remote host is in data center 'iad'
@@ -113,14 +136,38 @@ on stderr if Valve ever publishes IPv6 relays, which the firewall rule does not 
 ## Trade-offs
 
 Your traffic now reaches NA relays directly instead of entering Valve's backbone at a nearby
-European relay. From Central Europe that tends to *lower* the total — a measured 119 ms
-(43 ms to Paris + 76 ms backbone to Virginia) becomes a ~90-100 ms direct path — but you
-give up backbone route optimization and relay failover, so expect less resilience to jitter
-and loss.
+European relay. Measured from Central Europe, that is close to a wash:
+
+| | route | ping to `iad` |
+|---|---|---|
+| before | 43 ms to `par` + 76 ms backbone | 119 ms |
+| after  | direct | 122 ms |
+
+So it costs about 3 ms. Valve's backbone was already doing real work on the old path, and
+going direct does not beat it — do not expect this to improve your latency.
+
+The real cost is **failover headroom**. The usable relay pool shrinks sharply, because only
+NA relays remain reachable:
+
+```
+before:  Relays: 24 valid, 0 great, 11 good+, 16 ok+, 7 ignored
+after:   Relays:  6 valid, 0 great,  0 good+,  3 ok+, 0 ignored
+```
+
+The quality-tier collapse is not itself alarming — those are absolute latency bands, and
+nothing rates `good+` at transatlantic distance. You only had `good+` relays before because
+Paris was 28 ms away, on a route you were not actually playing on. But six relays with three
+at `ok+` is thin: SDR migrates between relays routinely mid-match, and there are now fewer
+places to migrate to, so expect the occasional rougher reconnect.
+
+That redundancy cannot be bought back without unblocking a nearby European relay, which
+would immediately make EU POPs cheap again and undo the entire effect.
 
 The Game Coordinator picks a datacenter from every player's reported pings. Making yours
 EU-hostile weights the decision heavily but does not unilaterally decide it, so a party full
-of European players can still outvote you.
+of European players can still outvote you. Queueing with NA friends pushes the same
+direction anyway — this mainly removes your own machine as the one vote dragging the lobby
+back to Frankfurt.
 
 ## Scope
 
