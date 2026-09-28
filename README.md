@@ -47,8 +47,28 @@ python refresh-relays.py        # pull current relay IPs from Valve
 .\na-lock.ps1 -Off              # full rollback
 ```
 
-`na-lock.ps1 -On` needs an elevated PowerShell session. Set `-GameExe` if your Deadlock
-install is not on the default path baked into the script.
+`-On` and `-Off` modify the Windows Firewall, so they need administrator rights. You do not
+have to launch an elevated shell yourself — the script explains what it is about to change
+and then requests elevation through UAC:
+
+```
+Administrator rights required
+  why   : adding a Windows Firewall rule is an administrative operation
+  what  : creates or removes ONE outbound Windows Firewall rule,
+          'Deadlock NA Lock (block non-NA SDR relays)',
+          scoped to the deadlock.exe binary only.
+  scope : no other game, app, or system setting is modified.
+  undo  : .\na-lock.ps1 -Off
+
+Requesting elevation - approve the UAC prompt...
+```
+
+Arguments are forwarded to the elevated instance, which pauses before closing so the result
+stays readable. Declining the UAC prompt changes nothing. Bad input (a `-GameExe` that does
+not exist) is rejected *before* the prompt, so you never get asked to elevate for a run that
+was going to fail anyway. `-Status` never needs elevation.
+
+Set `-GameExe` if your Deadlock install is not on the default path baked into the script.
 
 The rule matches on the game's exact image path, so it **fails open silently**: move or
 reinstall Deadlock somewhere else and the rule still exists but matches no process, quietly
